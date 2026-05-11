@@ -62,11 +62,9 @@
         <label>비밀번호 확인</label>
         <input type="password" name="password_confirm" placeholder="비밀번호 재입력" required>
     </div>
-    <div style="display:flex; align-items:flex-start; gap:10px; margin-bottom:16px;">
-        <input type="checkbox" name="privacy_agree" id="privacy_agree" style="margin-top:3px; accent-color:#4ade80;">
-        <label for="privacy_agree" style="font-size:13px; color:#aaa; cursor:pointer;">
-            위 개인정보 수집·이용에 동의합니다.
-        </label>
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:16px;">
+        <input type="checkbox" name="privacy_agree" id="privacy_agree" style="accent-color:#4ade80; width:14px; height:14px; flex-shrink:0;">
+        <label for="privacy_agree" style="font-size:13px; color:#aaa; cursor:pointer;">위 개인정보 수집·이용에 동의합니다.</label>
     </div>
     <button type="submit" class="btn" id="submit-btn" disabled style="opacity:0.4;">가입하기</button>
 </form>
