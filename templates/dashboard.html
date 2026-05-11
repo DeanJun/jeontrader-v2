@@ -34,8 +34,22 @@
                 {{ '실거래' if kis_mode == 'real' else '모의투자' }}
             </span>
         </div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span>분할매수</span>
+            <div style="display:flex; gap:6px;">
+                {% for n in [1, 2, 4] %}
+                <button id="split-btn-{{ n }}"
+                        onclick="setSplit({{ n }})"
+                        style="padding:2px 10px; border-radius:12px; border:1px solid #333; font-size:12px; cursor:pointer;
+                               background:{{ '#4ade80' if kis_split == n else 'transparent' }};
+                               color:{{ '#111' if kis_split == n else '#e0e0e0' }};">
+                    {{ n }}분할
+                </button>
+                {% endfor %}
+            </div>
+        </div>
         <div style="display:flex; justify-content:space-between;">
-            <span>분할매수</span><span style="color:#e0e0e0;">{{ kis_split }}분할 ({{ kis_buy_count }}매수)</span>
+            <span>매수횟수</span><span style="color:#e0e0e0;" id="buy-count-label">{{ kis_buy_count }}회</span>
         </div>
         <div style="display:flex; justify-content:space-between;">
             <span>텔레그램</span><span style="color:#4ade80;">연동됨</span>
@@ -86,6 +100,25 @@ async function toggleKis() {
         }
     } catch (e) {}
     btn.disabled = false;
+}
+
+let kisSplit = {{ kis_split }};
+
+async function setSplit(n) {
+    const res = await fetch('/kis-split', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({split: n})
+    });
+    const data = await res.json();
+    if (!data.ok) return;
+    kisSplit = n;
+    document.getElementById('buy-count-label').textContent = '0회';
+    [1, 2, 4].forEach(v => {
+        const btn = document.getElementById('split-btn-' + v);
+        btn.style.background = v === n ? '#4ade80' : 'transparent';
+        btn.style.color = v === n ? '#111' : '#e0e0e0';
+    });
 }
 
 async function testKis() {

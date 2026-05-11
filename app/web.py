@@ -170,6 +170,40 @@ async def kis_test(
         return JSONResponse({"ok": False, "message": msg})
 
 
+@router.post("/kis-split")
+async def kis_split_set(request: Request):
+    from fastapi.responses import JSONResponse
+    user_id = _require_user(request)
+    if not user_id:
+        return JSONResponse({"ok": False})
+
+    body = await request.json()
+    n = body.get("split")
+    if n not in (1, 2, 4):
+        return JSONResponse({"ok": False})
+
+    from app.db import SessionLocal
+    from app.models.user import User
+    from app.registry import get_state
+    from app.telegram_bot import _save_state
+    from sqlalchemy import select
+
+    async with SessionLocal() as session:
+        result = await session.execute(select(User).where(User.id == uuid.UUID(user_id)))
+        user = result.scalar_one_or_none()
+    if not user or not user.telegram_chat_id:
+        return JSONResponse({"ok": False})
+
+    state = get_state(user.telegram_chat_id)
+    if state is None:
+        return JSONResponse({"ok": False})
+
+    state.kis_split = n
+    state.kis_buy_count = 0
+    await _save_state(user.telegram_chat_id)
+    return JSONResponse({"ok": True})
+
+
 @router.post("/kis-toggle")
 async def kis_toggle(request: Request):
     from fastapi.responses import JSONResponse
