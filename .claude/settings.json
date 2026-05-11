@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ssh -i \"C:\\\\Users\\\\User\\\\Desktop\\\\pem\\\\jeontrader-v2.pem\" -o StrictHostKeyChecking=no root@101.79.19.211 \"cd /root/jeontrader-v2 && git pull && venv/bin/alembic revision --autogenerate -m 'init' && venv/bin/alembic upgrade head 2>&1\")",
+      "Bash(ssh -i \"C:\\\\Users\\\\User\\\\Desktop\\\\pem\\\\jeontrader-v2.pem\" -o StrictHostKeyChecking=no root@101.79.19.211 \"cd /root/jeontrader-v2 && git reset --hard HEAD && git clean -fd && git pull && venv/bin/alembic revision --autogenerate -m 'init' && venv/bin/alembic upgrade head\")"
+    ]
+  }
+}
