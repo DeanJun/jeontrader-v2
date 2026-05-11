@@ -1,123 +1,44 @@
-# JEONtrader
+# JEONtrader v2
 
-TradingView 알림 → ngrok → FastAPI → Upbit / 한국투자증권(KIS) 자동매매 + Telegram 알림
+TradingView 알림 → FastAPI → 한국투자증권(KIS) 자동매매 + Telegram 알림  
+멀티유저 SaaS 구조 — 초대코드 기반 가입, 유저별 독립 KIS 키 & 텔레그램 연동
 
 ---
 
 ## 구조
 
 ```
-TradingView 알림
-    └── ngrok (터널)
-            └── FastAPI 서버
-                    ├── 코인 심볼 (BTCUSDT 등) → Upbit 매매
-                    └── 주식 심볼 (005930 등)  → KIS 매매
-                            └── Telegram 알림
+TradingView Alert
+    └── POST /webhook/{user_id}
+            └── FastAPI (Naver Cloud, jeontrader.kro.kr)
+                    ├── PostgreSQL (유저 정보 / 주문 내역)
+                    ├── KIS REST API (유저별 독립 인스턴스)
+                    └── Telegram Bot (알림 / 명령어)
 ```
 
 ---
 
-## 사전 준비
+## 온보딩 플로우
 
-### 1. Python 패키지 설치
-
-```bash
-pip install -r requirements.txt
 ```
+초대코드 입력 → 회원가입 → KIS API 설정 → 텔레그램 연동 → 대시보드
+```
+
+1. `/invite` — 초대코드 확인
+2. `/register` — 이메일 / 비밀번호 가입
+3. `/kis-setup` — KIS App Key / Secret / 계좌번호 입력
+4. `/telegram-link` — 봇에 6자리 코드 전송 (`/start 123456`)
+5. `/dashboard` — KIS ON/OFF, 분할매수 설정, Webhook URL 확인
 
 ---
 
-### 2. ngrok 설치 및 인증
+## TradingView Webhook
 
-1. [https://ngrok.com](https://ngrok.com) 회원가입
-2. [https://dashboard.ngrok.com/get-started/setup](https://dashboard.ngrok.com/get-started/setup) 에서 설치파일 다운로드
-3. 인증토큰 발급 후 등록:
-```bash
-ngrok config add-authtoken <your_token>
+**URL (유저별 고유):**
 ```
-
----
-
-### 3. Telegram 봇 생성
-
-1. 텔레그램에서 **@BotFather** 검색
-2. `/newbot` 입력 → 봇 이름 설정
-3. 발급된 **Bot Token** 복사 → `.env`의 `TELEGRAM_BOT_TOKEN`에 입력
-
-**내 텔레그램 Chat ID 확인:**
-
-아래 URL을 브라우저에서 열고 봇에게 아무 메시지 보낸 뒤 접속:
+https://jeontrader.kro.kr/webhook/{user_id}
 ```
-https://api.telegram.org/bot<BOT_TOKEN>/getUpdates
-```
-`"chat":{"id": 123456789}` 부분의 숫자가 Chat ID → `.env`의 `TELEGRAM_ALLOWED_CHAT_ID`에 입력
-
----
-
-### 4. Upbit API 키 발급
-
-1. [https://upbit.com](https://upbit.com) 로그인
-2. **마이페이지 → Open API 관리** → API 키 발급
-3. 허용 IP에 본인 IP 추가 (또는 전체 허용)
-4. Access Key / Secret Key → `.env`에 입력
-
----
-
-### 5. 한국투자증권 KIS API 키 발급
-
-1. [https://apiportal.koreainvestment.com](https://apiportal.koreainvestment.com) 로그인
-2. **앱 관리 → 실전투자** 앱 생성
-3. App Key / App Secret / 계좌번호 → `.env`에 입력
-4. KIS 안 쓸 경우 `KIS_MODE=paper` 로 두고 텔레그램에서 `/stop kis`
-
----
-
-### 6. .env 설정
-
-`.env_example`을 복사해서 `.env` 생성 후 값 입력:
-
-```bash
-cp .env_example .env
-```
-
-```env
-KIS_MODE=real               # real | paper (KIS 안 쓰면 paper)
-
-KIS_REAL_APP_KEY=
-KIS_REAL_APP_SECRET=
-KIS_REAL_ACCOUNT_NO=00000000-01
-
-TELEGRAM_BOT_TOKEN=
-TELEGRAM_ALLOWED_CHAT_ID=
-
-UPBIT_ACCESS_KEY=
-UPBIT_SECRET_KEY=
-```
-
----
-
-## 실행
-
-터미널 1 — 서버:
-```bash
-python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-```
-
-터미널 2 — ngrok:
-```bash
-ngrok http 8000
-```
-
-ngrok 실행 후 출력되는 `https://xxxx.ngrok-free.app` 주소를 TradingView Webhook URL로 사용.
-
----
-
-## TradingView Webhook 설정
-
-**URL:**
-```
-https://<ngrok주소>/webhook/tradingview
-```
+> `user_id`는 대시보드에서 확인
 
 **Alert Message (JSON):**
 ```json
@@ -125,27 +46,81 @@ https://<ngrok주소>/webhook/tradingview
 {"action":"sell","symbol":"{{ticker}}","price":"{{close}}","time":"{{timenow}}"}
 ```
 
-**심볼 규칙:**
-
-| 심볼 예시 | 라우팅 |
-|-----------|--------|
-| BTCUSDT, ETHUSDT | Upbit |
-| 005930, 006340 (숫자 6자리) | KIS 국내주식 |
-| AAPL, TSLA + `"exchange":"NASD"` | KIS 해외주식 |
-
 ---
 
 ## Telegram 봇 명령어
 
 | 명령어 | 설명 |
 |--------|------|
-| `/start` | Upbit + KIS 매매 시작 |
-| `/start ubt` | Upbit만 시작 |
-| `/start kis` | KIS만 시작 |
-| `/stop` | Upbit + KIS 매매 중지 |
-| `/stop ubt` | Upbit만 중지 |
-| `/stop kis` | KIS만 중지 |
-| `/status` | 현재 상태 (ON/OFF, 포지션) |
-| `/balance` | Upbit 잔고 조회 |
+| `/start CODE` | 텔레그램 계정 연동 (코드는 웹에서 확인) |
+| `/start kis` | KIS 매매 시작 |
+| `/stop kis` | KIS 매매 중지 |
+| `/status` | 현재 상태 (ON/OFF, 포지션, 분할횟수) |
 | `/kisbalance` | KIS 잔고 조회 |
+| `/split 1\|2\|4` | 분할매수 횟수 설정 |
 | `/help` | 명령어 목록 |
+
+---
+
+## 로컬 개발 환경
+
+### 1. 패키지 설치
+
+```bash
+pip install -r requirements.txt
+```
+
+### 2. `.env` 설정
+
+```env
+DATABASE_URL=postgresql+asyncpg://jeontrader:PASSWORD@localhost:5432/jeontrader
+TELEGRAM_BOT_TOKEN=
+INVITE_CODE=dnt1!
+SECRET_KEY=change-me-in-production
+```
+
+### 3. DB 마이그레이션
+
+```bash
+alembic upgrade head
+```
+
+### 4. 서버 실행
+
+```bash
+uvicorn app.server:create_app --factory --host 0.0.0.0 --port 8000 --reload
+```
+
+---
+
+## 서버 배포 (Naver Cloud)
+
+- **OS:** Ubuntu 22.04
+- **스펙:** vCPU 2 / RAM 8GB / SSD 40GB
+- **도메인:** jeontrader.kro.kr (SSL — Let's Encrypt 자동갱신)
+- **프로세스:** systemd (`jeontrader.service`)
+- **리버스 프록시:** nginx (443/80 → 8000)
+
+```bash
+# 서비스 관리
+systemctl start jeontrader
+systemctl stop jeontrader
+systemctl restart jeontrader
+systemctl status jeontrader
+
+# 로그 확인
+journalctl -u jeontrader -f
+```
+
+---
+
+## 기술 스택
+
+| 영역 | 기술 |
+|------|------|
+| 웹 프레임워크 | FastAPI + Jinja2 |
+| DB | PostgreSQL + SQLAlchemy async + Alembic |
+| 인증 | bcrypt + itsdangerous (서명 쿠키) |
+| 텔레그램 | python-telegram-bot |
+| KIS API | 한국투자증권 REST API |
+| 배포 | nginx + systemd + certbot |
