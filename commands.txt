@@ -1,0 +1,43 @@
+================================================================
+ JEONtrader 실행 명령어 모음
+================================================================
+
+[ 패키지 설치 ]
+pip install -r requirements.txt
+
+[ 서버 실행 ] 운영용
+python -m uvicorn main:app --host 0.0.0.0 --port 8000
+
+[ 서버 실행 ] 개발용 (파일 변경 자동 반영, 재시작 시 state 초기화됨)
+python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+[ ngrok 실행 (다른 터미널) ]
+ngrok http 8000
+
+================================================================
+ 테스트 (PowerShell)
+================================================================
+
+-- KIS 국내주식 (006340 대한해운) --
+
+매수
+Invoke-RestMethod -Method POST -Uri "http://localhost:8000/webhook/tradingview" -ContentType "application/json" -Body '{"action":"buy","symbol":"006340","price":"5000","time":"2026-04-24"}'
+
+매도
+Invoke-RestMethod -Method POST -Uri "http://localhost:8000/webhook/tradingview" -ContentType "application/json" -Body '{"action":"sell","symbol":"006340","price":"5000","time":"2026-04-24"}'
+
+-- KIS 미국주식 (ZONE 나스닥) --
+
+매수
+Invoke-RestMethod -Method POST -Uri "http://localhost:8000/webhook/tradingview" -ContentType "application/json" -Body '{"action":"buy","symbol":"ZONE","price":"0.2770","market":"overseas","exchange":"NASD"}'
+
+매도
+Invoke-RestMethod -Method POST -Uri "http://localhost:8000/webhook/tradingview" -ContentType "application/json" -Body '{"action":"sell","symbol":"ZONE","price":"10","market":"overseas","exchange":"NASD"}'
+
+-- Upbit (BTC) --
+
+매수
+Invoke-RestMethod -Method POST -Uri "http://localhost:8000/webhook/tradingview" -ContentType "application/json" -Body '{"action":"buy","symbol":"BTCUSDT","price":"135000000","time":"2026-04-24"}'
+
+매도
+Invoke-RestMethod -Method POST -Uri "http://localhost:8000/webhook/tradingview" -ContentType "application/json" -Body '{"action":"sell","symbol":"BTCUSDT","price":"135000000","time":"2026-04-24"}'
