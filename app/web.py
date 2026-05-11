@@ -19,8 +19,6 @@ _signer = URLSafeSerializer(settings.secret_key, salt="session")
 COOKIE = "jt_session"
 
 
-# ── 세션 헬퍼 ─────────────────────────────────────────────────────────────────
-
 def _set_session(response: Response, data: dict) -> None:
     response.set_cookie(COOKIE, _signer.dumps(data), httponly=True, samesite="lax")
 
@@ -36,8 +34,11 @@ def _get_session(request: Request) -> dict:
 
 
 def _require_user(request: Request) -> str | None:
-    """로그인된 user_id 반환. 없으면 None."""
     return _get_session(request).get("user_id")
+
+
+def _r(name: str, request: Request, ctx: dict = {}):
+    return templates.TemplateResponse(request, name, ctx)
 
 
 # ── 초대코드 ──────────────────────────────────────────────────────────────────
@@ -51,13 +52,13 @@ async def root(request: Request):
 
 @router.get("/invite", response_class=HTMLResponse)
 async def invite_get(request: Request):
-    return templates.TemplateResponse("invite.html", {"request": request, "error": None})
+    return _r("invite.html", request, {"error": None})
 
 
 @router.post("/invite", response_class=HTMLResponse)
 async def invite_post(request: Request, code: str = Form(...)):
     if code != settings.invite_code:
-        return templates.TemplateResponse("invite.html", {"request": request, "error": "초대코드가 올바르지 않습니다."})
+        return _r("invite.html", request, {"error": "초대코드가 올바르지 않습니다."})
     response = RedirectResponse("/register", status_code=303)
     _set_session(response, {"invite_ok": True})
     return response
@@ -69,7 +70,7 @@ async def invite_post(request: Request, code: str = Form(...)):
 async def register_get(request: Request):
     if not _get_session(request).get("invite_ok"):
         return RedirectResponse("/invite")
-    return templates.TemplateResponse("register.html", {"request": request, "error": None})
+    return _r("register.html", request, {"error": None})
 
 
 @router.post("/register", response_class=HTMLResponse)
@@ -83,9 +84,9 @@ async def register_post(
         return RedirectResponse("/invite")
 
     if password != password_confirm:
-        return templates.TemplateResponse("register.html", {"request": request, "error": "비밀번호가 일치하지 않습니다."})
+        return _r("register.html", request, {"error": "비밀번호가 일치하지 않습니다."})
     if len(password) < 8:
-        return templates.TemplateResponse("register.html", {"request": request, "error": "비밀번호는 8자 이상이어야 합니다."})
+        return _r("register.html", request, {"error": "비밀번호는 8자 이상이어야 합니다."})
 
     from app.db import SessionLocal
     from app.models.user import User
@@ -94,7 +95,7 @@ async def register_post(
     async with SessionLocal() as session:
         exists = await session.execute(select(User).where(User.email == email))
         if exists.scalar_one_or_none():
-            return templates.TemplateResponse("register.html", {"request": request, "error": "이미 사용 중인 이메일입니다."})
+            return _r("register.html", request, {"error": "이미 사용 중인 이메일입니다."})
 
         pw_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
         user = User(email=email, password_hash=pw_hash)
@@ -114,7 +115,7 @@ async def register_post(
 async def kis_setup_get(request: Request):
     if not _require_user(request):
         return RedirectResponse("/invite")
-    return templates.TemplateResponse("kis_setup.html", {"request": request, "error": None})
+    return _r("kis_setup.html", request, {"error": None})
 
 
 @router.post("/kis-setup", response_class=HTMLResponse)
@@ -142,7 +143,6 @@ async def kis_setup_post(
         user.kis_app_key = kis_app_key
         user.kis_app_secret = kis_app_secret
         user.kis_account_no = kis_account_no
-        # 6자리 텔레그램 연동 코드 발급
         link_code = "".join(random.choices(string.digits, k=6))
         user.telegram_link_code = link_code
         await session.commit()
@@ -170,14 +170,10 @@ async def telegram_link_get(request: Request):
 
     if not user:
         return RedirectResponse("/invite")
-
     if user.telegram_chat_id:
         return RedirectResponse("/dashboard")
 
-    return templates.TemplateResponse("telegram_link.html", {
-        "request": request,
-        "code": user.telegram_link_code,
-    })
+    return _r("telegram_link.html", request, {"code": user.telegram_link_code})
 
 
 @router.get("/telegram-status")
@@ -213,7 +209,6 @@ async def telegram_check(request: Request):
 
     if user and user.telegram_chat_id:
         return RedirectResponse("/dashboard", status_code=303)
-
     return RedirectResponse("/telegram-link", status_code=303)
 
 
@@ -241,8 +236,7 @@ async def dashboard(request: Request):
     from app.registry import get_state
     state = get_state(user.telegram_chat_id)
 
-    return templates.TemplateResponse("dashboard.html", {
-        "request": request,
+    return _r("dashboard.html", request, {
         "user_id": user_id,
         "email": user.email,
         "kis_mode": user.kis_mode,
