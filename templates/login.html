@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}— 로그인{% endblock %}
+
+{% block content %}
+<h2>로그인</h2>
+<p class="desc">계정에 로그인하세요.</p>
+
+{% if error %}
+<div class="error">{{ error }}</div>
+{% endif %}
+
+<form method="post" action="/login">
+    <div class="form-group">
+        <label>이메일</label>
+        <input type="email" name="email" placeholder="example@email.com" autofocus>
+    </div>
+    <div class="form-group">
+        <label>비밀번호</label>
+        <input type="password" name="password" placeholder="비밀번호">
+    </div>
+    <button type="submit" class="btn">로그인</button>
+</form>
+
+<hr class="divider">
+<p style="text-align:center; font-size:13px; color:#555;">
+    계정이 없으신가요? <a href="/invite" style="color:#4ade80;">초대코드로 가입</a>
+</p>
+{% endblock %}

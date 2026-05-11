@@ -41,13 +41,44 @@ def _r(name: str, request: Request, ctx: dict = {}):
     return templates.TemplateResponse(request, name, ctx)
 
 
+# ── 로그인 ────────────────────────────────────────────────────────────────────
+
+@router.get("/login", response_class=HTMLResponse)
+async def login_get(request: Request):
+    if _require_user(request):
+        return RedirectResponse("/dashboard")
+    return _r("login.html", request, {"error": None})
+
+
+@router.post("/login", response_class=HTMLResponse)
+async def login_post(
+    request: Request,
+    email: str = Form(...),
+    password: str = Form(...),
+):
+    from app.db import SessionLocal
+    from app.models.user import User
+    from sqlalchemy import select
+
+    async with SessionLocal() as session:
+        result = await session.execute(select(User).where(User.email == email))
+        user = result.scalar_one_or_none()
+
+    if not user or not bcrypt.checkpw(password.encode(), user.password_hash.encode()):
+        return _r("login.html", request, {"error": "이메일 또는 비밀번호가 올바르지 않습니다."})
+
+    response = RedirectResponse("/dashboard", status_code=303)
+    _set_session(response, {"user_id": str(user.id), "invite_ok": True})
+    return response
+
+
 # ── 초대코드 ──────────────────────────────────────────────────────────────────
 
 @router.get("/", response_class=HTMLResponse)
 async def root(request: Request):
     if _require_user(request):
         return RedirectResponse("/dashboard")
-    return RedirectResponse("/invite")
+    return RedirectResponse("/login")
 
 
 @router.get("/invite", response_class=HTMLResponse)
@@ -122,6 +153,7 @@ async def kis_setup_get(request: Request):
 async def kis_setup_post(
     request: Request,
     kis_mode: str = Form(...),
+    kis_customer_id: str = Form(...),
     kis_app_key: str = Form(...),
     kis_app_secret: str = Form(...),
     kis_account_no: str = Form(...),
@@ -140,6 +172,7 @@ async def kis_setup_post(
         if not user:
             return RedirectResponse("/invite")
         user.kis_mode = kis_mode
+        user.kis_customer_id = kis_customer_id
         user.kis_app_key = kis_app_key
         user.kis_app_secret = kis_app_secret
         user.kis_account_no = kis_account_no

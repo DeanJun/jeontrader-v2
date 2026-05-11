@@ -15,6 +15,7 @@ class User(Base):
 
     # KIS API
     kis_mode: Mapped[str] = mapped_column(String(10), default="paper")  # "paper" | "real"
+    kis_customer_id: Mapped[str | None] = mapped_column(String(50))
     kis_app_key: Mapped[str | None] = mapped_column(String(255))
     kis_app_secret: Mapped[str | None] = mapped_column(String(255))
     kis_account_no: Mapped[str | None] = mapped_column(String(50))
