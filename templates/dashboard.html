@@ -26,7 +26,7 @@
     <div class="label">계정 정보</div>
     <div style="font-size:13px; color:#aaa; line-height:1.9;">
         <div style="display:flex; justify-content:space-between;">
-            <span>이메일</span><span style="color:#e0e0e0;">{{ email }}</span>
+            <span>ID</span><span style="color:#e0e0e0;">{{ email.split('@')[0] }}</span>
         </div>
         <div style="display:flex; justify-content:space-between;">
             <span>KIS 모드</span>
@@ -48,8 +48,12 @@
                 {% endfor %}
             </div>
         </div>
-        <div style="display:flex; justify-content:space-between;">
-            <span>매수횟수</span><span style="color:#e0e0e0;" id="buy-count-label">{{ kis_buy_count }}회</span>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span>매수횟수</span>
+            <span>
+                <span style="color:#e0e0e0;" id="buy-count-label">{{ kis_buy_count }}회</span>
+                <span id="buy-count-reset-badge" style="display:none; font-size:11px; color:#facc15; margin-left:6px;">분할 변경 — 리셋됨</span>
+            </span>
         </div>
         <div style="display:flex; justify-content:space-between;">
             <span>텔레그램</span><span style="color:#4ade80;">연동됨</span>
@@ -114,6 +118,9 @@ async function setSplit(n) {
     if (!data.ok) return;
     kisSplit = n;
     document.getElementById('buy-count-label').textContent = '0회';
+    const badge = document.getElementById('buy-count-reset-badge');
+    badge.style.display = 'inline';
+    setTimeout(() => badge.style.display = 'none', 3000);
     [1, 2, 4].forEach(v => {
         const btn = document.getElementById('split-btn-' + v);
         btn.style.background = v === n ? '#4ade80' : 'transparent';
