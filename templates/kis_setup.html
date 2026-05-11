@@ -16,10 +16,10 @@
 <div class="error">{{ error }}</div>
 {% endif %}
 
-<form method="post" action="/kis-setup">
+<form method="post" action="/kis-setup" id="kis-form">
     <div class="form-group">
         <label>거래 모드</label>
-        <select name="kis_mode">
+        <select name="kis_mode" id="kis_mode">
             <option value="paper">모의투자</option>
             <option value="real">실거래</option>
         </select>
@@ -30,16 +30,86 @@
     </div>
     <div class="form-group">
         <label>App Key</label>
-        <input type="text" name="kis_app_key" placeholder="KIS App Key">
+        <input type="text" name="kis_app_key" id="kis_app_key" placeholder="KIS App Key" oninput="resetTest()">
     </div>
     <div class="form-group">
         <label>App Secret</label>
-        <input type="text" name="kis_app_secret" placeholder="KIS App Secret">
+        <input type="text" name="kis_app_secret" id="kis_app_secret" placeholder="KIS App Secret" oninput="resetTest()">
     </div>
     <div class="form-group">
         <label>계좌번호</label>
         <input type="text" name="kis_account_no" placeholder="예: 69364171-01">
     </div>
-    <button type="submit" class="btn">저장하고 계속</button>
+
+    <div id="test-result" style="display:none; padding:10px 14px; border-radius:8px; font-size:13px; margin-bottom:12px;"></div>
+
+    <div style="display:flex; gap:10px;">
+        <button type="button" class="btn btn-ghost" id="test-btn" onclick="testKis()" style="flex:1;">연결 테스트</button>
+        <button type="submit" class="btn" id="submit-btn" style="flex:2;" disabled>저장하고 계속</button>
+    </div>
 </form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let testPassed = false;
+
+function resetTest() {
+    testPassed = false;
+    document.getElementById('submit-btn').disabled = true;
+    document.getElementById('test-result').style.display = 'none';
+}
+
+async function testKis() {
+    const btn = document.getElementById('test-btn');
+    const result = document.getElementById('test-result');
+    const mode = document.getElementById('kis_mode').value;
+    const key = document.getElementById('kis_app_key').value.trim();
+    const secret = document.getElementById('kis_app_secret').value.trim();
+
+    if (!key || !secret) {
+        result.style.display = 'block';
+        result.style.background = '#3a1a1a';
+        result.style.color = '#f87171';
+        result.textContent = 'App Key와 App Secret을 입력해주세요.';
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = '테스트 중...';
+    result.style.display = 'none';
+
+    const form = new FormData();
+    form.append('kis_mode', mode);
+    form.append('kis_app_key', key);
+    form.append('kis_app_secret', secret);
+
+    try {
+        const res = await fetch('/kis-test', { method: 'POST', body: form });
+        const data = await res.json();
+        result.style.display = 'block';
+        if (data.ok) {
+            result.style.background = '#0f2a1a';
+            result.style.color = '#4ade80';
+            result.textContent = '✓ ' + data.message;
+            testPassed = true;
+            document.getElementById('submit-btn').disabled = false;
+        } else {
+            result.style.background = '#3a1a1a';
+            result.style.color = '#f87171';
+            result.textContent = '✗ ' + data.message;
+            testPassed = false;
+            document.getElementById('submit-btn').disabled = true;
+        }
+    } catch (e) {
+        result.style.display = 'block';
+        result.style.background = '#3a1a1a';
+        result.style.color = '#f87171';
+        result.textContent = '✗ 네트워크 오류';
+    }
+
+    btn.disabled = false;
+    btn.textContent = '연결 테스트';
+}
+</script>
 {% endblock %}

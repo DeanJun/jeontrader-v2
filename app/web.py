@@ -135,6 +135,65 @@ async def register_post(
     return response
 
 
+# ── KIS 연결 테스트 ───────────────────────────────────────────────────────────
+
+@router.post("/kis-test")
+async def kis_test(
+    request: Request,
+    kis_mode: str = Form(...),
+    kis_app_key: str = Form(...),
+    kis_app_secret: str = Form(...),
+):
+    from kis.auth import KISAuth
+    from fastapi.responses import JSONResponse
+    try:
+        auth = KISAuth(mode=kis_mode, app_key=kis_app_key, app_secret=kis_app_secret)
+        await auth.get_token()
+        return JSONResponse({"ok": True, "message": "연결 성공"})
+    except Exception as e:
+        msg = str(e)
+        if "unauthorized" in msg.lower() or "401" in msg:
+            msg = "App Key 또는 App Secret이 올바르지 않습니다."
+        elif "timeout" in msg.lower():
+            msg = "KIS 서버 응답 시간 초과."
+        else:
+            msg = f"연결 실패: {msg}"
+        return JSONResponse({"ok": False, "message": msg})
+
+
+@router.post("/kis-test-saved")
+async def kis_test_saved(request: Request):
+    from kis.auth import KISAuth
+    from fastapi.responses import JSONResponse
+    user_id = _require_user(request)
+    if not user_id:
+        return JSONResponse({"ok": False, "message": "로그인 필요"})
+
+    from app.db import SessionLocal
+    from app.models.user import User
+    from sqlalchemy import select
+
+    async with SessionLocal() as session:
+        result = await session.execute(select(User).where(User.id == uuid.UUID(user_id)))
+        user = result.scalar_one_or_none()
+
+    if not user:
+        return JSONResponse({"ok": False, "message": "유저 없음"})
+    try:
+        auth = KISAuth(mode=user.kis_mode, app_key=user.kis_app_key, app_secret=user.kis_app_secret)
+        await auth.get_token()
+        return JSONResponse({"ok": True, "message": "연결 성공"})
+    except Exception as e:
+        msg = str(e)
+        if "401" in msg:
+            msg = "App Key 또는 App Secret이 올바르지 않습니다."
+        elif "timeout" in msg.lower():
+            msg = "KIS 서버 응답 시간 초과."
+        else:
+            msg = f"연결 실패: {msg}"
+        return JSONResponse({"ok": False, "message": msg})
+
+
 # ── KIS 설정 ──────────────────────────────────────────────────────────────────
 
 @router.get("/kis-setup", response_class=HTMLResponse)
