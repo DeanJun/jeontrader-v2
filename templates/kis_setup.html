@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}— KIS 설정{% endblock %}
+
+{% block content %}
+<div class="step-indicator">
+    <div class="step-dot done"></div>
+    <div class="step-dot done"></div>
+    <div class="step-dot active"></div>
+    <div class="step-dot"></div>
+</div>
+
+<h2>KIS API 설정</h2>
+<p class="desc">한국투자증권 API 키를 입력하세요.<br>모의투자로 먼저 테스트해보실 수 있습니다.</p>
+
+{% if error %}
+<div class="error">{{ error }}</div>
+{% endif %}
+
+<form method="post" action="/kis-setup">
+    <div class="form-group">
+        <label>거래 모드</label>
+        <select name="kis_mode">
+            <option value="paper">모의투자</option>
+            <option value="real">실거래</option>
+        </select>
+    </div>
+    <div class="form-group">
+        <label>App Key</label>
+        <input type="text" name="kis_app_key" placeholder="KIS App Key">
+    </div>
+    <div class="form-group">
+        <label>App Secret</label>
+        <input type="text" name="kis_app_secret" placeholder="KIS App Secret">
+    </div>
+    <div class="form-group">
+        <label>계좌번호</label>
+        <input type="text" name="kis_account_no" placeholder="예: 12345678-01">
+    </div>
+    <button type="submit" class="btn">저장하고 계속</button>
+</form>
+{% endblock %}

@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}— 대시보드{% endblock %}
+
+{% block content %}
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+    <h2>대시보드</h2>
+    <span class="status-badge {{ 'badge-on' if kis_enabled else 'badge-off' }}">
+        <span class="badge-dot"></span>
+        {{ 'KIS ON' if kis_enabled else 'KIS OFF' }}
+    </span>
+</div>
+
+<div class="info-box">
+    <div class="label">내 웹훅 URL</div>
+    <p style="font-size:12px; color:#555; margin-bottom:8px;">TradingView 알람 설정 > 웹훅 URL에 붙여넣으세요.</p>
+    <div class="copy-row">
+        <span class="copy-value" id="webhook-url">https://jeontrader.kro.kr/webhook/{{ user_id }}</span>
+        <button class="copy-btn" onclick="copy('webhook-url')">복사</button>
+    </div>
+</div>
+
+<div class="info-box">
+    <div class="label">계정 정보</div>
+    <div style="font-size:13px; color:#aaa; line-height:1.9;">
+        <div style="display:flex; justify-content:space-between;">
+            <span>이메일</span><span style="color:#e0e0e0;">{{ email }}</span>
+        </div>
+        <div style="display:flex; justify-content:space-between;">
+            <span>KIS 모드</span>
+            <span style="color:{{ '#4ade80' if kis_mode == 'real' else '#facc15' }};">
+                {{ '실거래' if kis_mode == 'real' else '모의투자' }}
+            </span>
+        </div>
+        <div style="display:flex; justify-content:space-between;">
+            <span>분할매수</span><span style="color:#e0e0e0;">{{ kis_split }}분할 ({{ kis_buy_count }}매수)</span>
+        </div>
+        <div style="display:flex; justify-content:space-between;">
+            <span>텔레그램</span><span style="color:#4ade80;">연동됨</span>
+        </div>
+    </div>
+</div>
+
+<hr class="divider">
+
+<div style="font-size:12px; color:#444; text-align:center; line-height:1.8;">
+    텔레그램 봇에서 명령어로 매매를 제어하세요.<br>
+    /start &nbsp;·&nbsp; /stop &nbsp;·&nbsp; /status &nbsp;·&nbsp; /balance &nbsp;·&nbsp; /split 1|2|4
+</div>
+
+<hr class="divider">
+
+<a href="/logout"><button class="btn btn-ghost" style="margin-top:0;">로그아웃</button></a>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function copy(id) {
+    navigator.clipboard.writeText(document.getElementById(id).textContent.trim());
+    event.target.textContent = '복사됨!';
+    setTimeout(() => event.target.textContent = '복사', 1500);
+}
+</script>
+{% endblock %}

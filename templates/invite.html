@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}— 초대코드{% endblock %}
+
+{% block content %}
+<h2>초대코드 입력</h2>
+<p class="desc">서비스 이용을 위해 초대코드를 입력하세요.</p>
+
+{% if error %}
+<div class="error">{{ error }}</div>
+{% endif %}
+
+<form method="post" action="/invite">
+    <div class="form-group">
+        <label>초대코드</label>
+        <input type="text" name="code" placeholder="초대코드를 입력하세요" autofocus autocomplete="off">
+    </div>
+    <button type="submit" class="btn">확인</button>
+</form>
+{% endblock %}

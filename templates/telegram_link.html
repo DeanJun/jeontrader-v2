@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}— 텔레그램 연동{% endblock %}
+
+{% block content %}
+<div class="step-indicator">
+    <div class="step-dot done"></div>
+    <div class="step-dot done"></div>
+    <div class="step-dot done"></div>
+    <div class="step-dot active"></div>
+</div>
+
+<h2>텔레그램 연동</h2>
+<p class="desc">아래 코드를 복사해서 텔레그램 봇에 전송하세요.</p>
+
+<div class="big-code">{{ code }}</div>
+
+<div class="info-box">
+    <div class="label">전송 방법</div>
+    <div style="font-size: 13px; color: #aaa; line-height: 1.7;">
+        1. 텔레그램에서 봇 검색<br>
+        2. 아래 명령어 전송:
+        <div class="copy-row" style="margin-top: 8px;">
+            <span class="copy-value" id="cmd">/start {{ code }}</span>
+            <button class="copy-btn" onclick="copy('cmd')">복사</button>
+        </div>
+    </div>
+</div>
+
+<p class="desc" style="text-align:center;">연동 완료 시 자동으로 다음 페이지로 이동합니다.</p>
+
+<form method="post" action="/telegram-check">
+    <button type="submit" class="btn btn-ghost">연동 완료 확인</button>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function copy(id) {
+    navigator.clipboard.writeText(document.getElementById(id).textContent.trim());
+    event.target.textContent = '복사됨!';
+    setTimeout(() => event.target.textContent = '복사', 1500);
+}
+
+// 5초마다 연동 완료 여부 자동 체크
+setInterval(async () => {
+    const res = await fetch('/telegram-status');
+    const data = await res.json();
+    if (data.linked) window.location.href = '/dashboard';
+}, 5000);
+</script>
+{% endblock %}

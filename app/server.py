@@ -2,13 +2,18 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 
+from fastapi.staticfiles import StaticFiles
+
 from app.services.telegram_service import telegram_service
 from app.webhook import router as webhook_router
+from app.web import router as web_router
 
 
 def create_app() -> FastAPI:
     app = FastAPI(title="JEONtrader v2")
 
+    app.mount("/static", StaticFiles(directory="static"), name="static")
+    app.include_router(web_router)
     app.include_router(webhook_router)
 
     @app.on_event("startup")

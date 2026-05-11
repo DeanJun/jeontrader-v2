@@ -6,13 +6,17 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=False, extra="ignore")
 
-    # ── Database ──────────────────────────────────────────────────────────
+    # DB
     database_url: str = "postgresql+asyncpg://jeontrader:ghtjd12!%40@localhost:5432/jeontrader"
 
-    # ── Telegram ──────────────────────────────────────────────────────────
+    # Telegram
     telegram_bot_token: str = ""
 
-    # ── Dev flags ─────────────────────────────────────────────────────────
+    # Web
+    invite_code: str = "dnt1!"
+    secret_key: str = "change-me-in-production"
+
+    # Dev
     allow_outside_hours: bool = False
 
 

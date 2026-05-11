@@ -1,0 +1,261 @@
+from __future__ import annotations
+
+import random
+import string
+import uuid
+
+import bcrypt
+from fastapi import APIRouter, Form, Request, Response
+from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.templating import Jinja2Templates
+from itsdangerous import URLSafeSerializer, BadSignature
+
+from app.config import settings
+
+router = APIRouter()
+templates = Jinja2Templates(directory="templates")
+_signer = URLSafeSerializer(settings.secret_key, salt="session")
+
+COOKIE = "jt_session"
+
+
+# ── 세션 헬퍼 ─────────────────────────────────────────────────────────────────
+
+def _set_session(response: Response, data: dict) -> None:
+    response.set_cookie(COOKIE, _signer.dumps(data), httponly=True, samesite="lax")
+
+
+def _get_session(request: Request) -> dict:
+    token = request.cookies.get(COOKIE)
+    if not token:
+        return {}
+    try:
+        return _signer.loads(token)
+    except BadSignature:
+        return {}
+
+
+def _require_user(request: Request) -> str | None:
+    """로그인된 user_id 반환. 없으면 None."""
+    return _get_session(request).get("user_id")
+
+
+# ── 초대코드 ──────────────────────────────────────────────────────────────────
+
+@router.get("/", response_class=HTMLResponse)
+async def root(request: Request):
+    if _require_user(request):
+        return RedirectResponse("/dashboard")
+    return RedirectResponse("/invite")
+
+
+@router.get("/invite", response_class=HTMLResponse)
+async def invite_get(request: Request):
+    return templates.TemplateResponse("invite.html", {"request": request, "error": None})
+
+
+@router.post("/invite", response_class=HTMLResponse)
+async def invite_post(request: Request, code: str = Form(...)):
+    if code != settings.invite_code:
+        return templates.TemplateResponse("invite.html", {"request": request, "error": "초대코드가 올바르지 않습니다."})
+    response = RedirectResponse("/register", status_code=303)
+    _set_session(response, {"invite_ok": True})
+    return response
+
+
+# ── 회원가입 ──────────────────────────────────────────────────────────────────
+
+@router.get("/register", response_class=HTMLResponse)
+async def register_get(request: Request):
+    if not _get_session(request).get("invite_ok"):
+        return RedirectResponse("/invite")
+    return templates.TemplateResponse("register.html", {"request": request, "error": None})
+
+
+@router.post("/register", response_class=HTMLResponse)
+async def register_post(
+    request: Request,
+    email: str = Form(...),
+    password: str = Form(...),
+    password_confirm: str = Form(...),
+):
+    if not _get_session(request).get("invite_ok"):
+        return RedirectResponse("/invite")
+
+    if password != password_confirm:
+        return templates.TemplateResponse("register.html", {"request": request, "error": "비밀번호가 일치하지 않습니다."})
+    if len(password) < 8:
+        return templates.TemplateResponse("register.html", {"request": request, "error": "비밀번호는 8자 이상이어야 합니다."})
+
+    from app.db import SessionLocal
+    from app.models.user import User
+    from sqlalchemy import select
+
+    async with SessionLocal() as session:
+        exists = await session.execute(select(User).where(User.email == email))
+        if exists.scalar_one_or_none():
+            return templates.TemplateResponse("register.html", {"request": request, "error": "이미 사용 중인 이메일입니다."})
+
+        pw_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+        user = User(email=email, password_hash=pw_hash)
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+        user_id = str(user.id)
+
+    response = RedirectResponse("/kis-setup", status_code=303)
+    _set_session(response, {"user_id": user_id, "invite_ok": True})
+    return response
+
+
+# ── KIS 설정 ──────────────────────────────────────────────────────────────────
+
+@router.get("/kis-setup", response_class=HTMLResponse)
+async def kis_setup_get(request: Request):
+    if not _require_user(request):
+        return RedirectResponse("/invite")
+    return templates.TemplateResponse("kis_setup.html", {"request": request, "error": None})
+
+
+@router.post("/kis-setup", response_class=HTMLResponse)
+async def kis_setup_post(
+    request: Request,
+    kis_mode: str = Form(...),
+    kis_app_key: str = Form(...),
+    kis_app_secret: str = Form(...),
+    kis_account_no: str = Form(...),
+):
+    user_id = _require_user(request)
+    if not user_id:
+        return RedirectResponse("/invite")
+
+    from app.db import SessionLocal
+    from app.models.user import User
+    from sqlalchemy import select
+
+    async with SessionLocal() as session:
+        result = await session.execute(select(User).where(User.id == uuid.UUID(user_id)))
+        user = result.scalar_one_or_none()
+        if not user:
+            return RedirectResponse("/invite")
+        user.kis_mode = kis_mode
+        user.kis_app_key = kis_app_key
+        user.kis_app_secret = kis_app_secret
+        user.kis_account_no = kis_account_no
+        # 6자리 텔레그램 연동 코드 발급
+        link_code = "".join(random.choices(string.digits, k=6))
+        user.telegram_link_code = link_code
+        await session.commit()
+
+    response = RedirectResponse("/telegram-link", status_code=303)
+    _set_session(response, {"user_id": user_id, "invite_ok": True})
+    return response
+
+
+# ── 텔레그램 연동 ─────────────────────────────────────────────────────────────
+
+@router.get("/telegram-link", response_class=HTMLResponse)
+async def telegram_link_get(request: Request):
+    user_id = _require_user(request)
+    if not user_id:
+        return RedirectResponse("/invite")
+
+    from app.db import SessionLocal
+    from app.models.user import User
+    from sqlalchemy import select
+
+    async with SessionLocal() as session:
+        result = await session.execute(select(User).where(User.id == uuid.UUID(user_id)))
+        user = result.scalar_one_or_none()
+
+    if not user:
+        return RedirectResponse("/invite")
+
+    if user.telegram_chat_id:
+        return RedirectResponse("/dashboard")
+
+    return templates.TemplateResponse("telegram_link.html", {
+        "request": request,
+        "code": user.telegram_link_code,
+    })
+
+
+@router.get("/telegram-status")
+async def telegram_status(request: Request):
+    user_id = _require_user(request)
+    if not user_id:
+        return {"linked": False}
+
+    from app.db import SessionLocal
+    from app.models.user import User
+    from sqlalchemy import select
+
+    async with SessionLocal() as session:
+        result = await session.execute(select(User).where(User.id == uuid.UUID(user_id)))
+        user = result.scalar_one_or_none()
+
+    return {"linked": bool(user and user.telegram_chat_id)}
+
+
+@router.post("/telegram-check")
+async def telegram_check(request: Request):
+    user_id = _require_user(request)
+    if not user_id:
+        return RedirectResponse("/invite", status_code=303)
+
+    from app.db import SessionLocal
+    from app.models.user import User
+    from sqlalchemy import select
+
+    async with SessionLocal() as session:
+        result = await session.execute(select(User).where(User.id == uuid.UUID(user_id)))
+        user = result.scalar_one_or_none()
+
+    if user and user.telegram_chat_id:
+        return RedirectResponse("/dashboard", status_code=303)
+
+    return RedirectResponse("/telegram-link", status_code=303)
+
+
+# ── 대시보드 ──────────────────────────────────────────────────────────────────
+
+@router.get("/dashboard", response_class=HTMLResponse)
+async def dashboard(request: Request):
+    user_id = _require_user(request)
+    if not user_id:
+        return RedirectResponse("/invite")
+
+    from app.db import SessionLocal
+    from app.models.user import User
+    from sqlalchemy import select
+
+    async with SessionLocal() as session:
+        result = await session.execute(select(User).where(User.id == uuid.UUID(user_id)))
+        user = result.scalar_one_or_none()
+
+    if not user:
+        return RedirectResponse("/invite")
+    if not user.telegram_chat_id:
+        return RedirectResponse("/telegram-link")
+
+    from app.registry import get_state
+    state = get_state(user.telegram_chat_id)
+
+    return templates.TemplateResponse("dashboard.html", {
+        "request": request,
+        "user_id": user_id,
+        "email": user.email,
+        "kis_mode": user.kis_mode,
+        "kis_enabled": state.kis_enabled if state else False,
+        "kis_split": state.kis_split if state else 1,
+        "kis_buy_count": state.kis_buy_count if state else 0,
+    })
+
+
+# ── 로그아웃 ──────────────────────────────────────────────────────────────────
+
+@router.get("/logout")
+async def logout():
+    response = RedirectResponse("/invite", status_code=303)
+    response.delete_cookie(COOKIE)
+    return response

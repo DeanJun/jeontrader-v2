@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JEONtrader {% block title %}{% endblock %}</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #0f0f0f;
+            color: #e0e0e0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .card {
+            background: #1a1a1a;
+            border: 1px solid #2a2a2a;
+            border-radius: 12px;
+            padding: 40px;
+            width: 100%;
+            max-width: 480px;
+        }
+        .logo {
+            font-size: 22px;
+            font-weight: 700;
+            color: #4ade80;
+            margin-bottom: 8px;
+            letter-spacing: -0.5px;
+        }
+        .subtitle {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 32px;
+        }
+        .step-indicator {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 28px;
+        }
+        .step-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #2a2a2a;
+        }
+        .step-dot.active { background: #4ade80; }
+        .step-dot.done { background: #166534; }
+        h2 {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+        .desc {
+            font-size: 13px;
+            color: #888;
+            margin-bottom: 24px;
+            line-height: 1.5;
+        }
+        .form-group {
+            margin-bottom: 16px;
+        }
+        label {
+            display: block;
+            font-size: 13px;
+            color: #aaa;
+            margin-bottom: 6px;
+        }
+        input, select {
+            width: 100%;
+            padding: 10px 14px;
+            background: #111;
+            border: 1px solid #333;
+            border-radius: 8px;
+            color: #e0e0e0;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        input:focus, select:focus { border-color: #4ade80; }
+        input::placeholder { color: #444; }
+        .btn {
+            width: 100%;
+            padding: 12px;
+            background: #4ade80;
+            color: #000;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 8px;
+            transition: background 0.2s;
+        }
+        .btn:hover { background: #22c55e; }
+        .btn-ghost {
+            background: transparent;
+            color: #4ade80;
+            border: 1px solid #4ade80;
+        }
+        .btn-ghost:hover { background: #4ade8015; }
+        .error {
+            background: #3b0d0d;
+            border: 1px solid #7f1d1d;
+            color: #fca5a5;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            margin-bottom: 16px;
+        }
+        .info-box {
+            background: #111;
+            border: 1px solid #2a2a2a;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+        .info-box .label {
+            font-size: 11px;
+            color: #555;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+        }
+        .copy-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .copy-value {
+            flex: 1;
+            font-size: 13px;
+            color: #4ade80;
+            word-break: break-all;
+            font-family: monospace;
+        }
+        .copy-btn {
+            padding: 6px 12px;
+            background: #2a2a2a;
+            border: none;
+            border-radius: 6px;
+            color: #aaa;
+            font-size: 12px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .copy-btn:hover { background: #333; color: #fff; }
+        .divider {
+            border: none;
+            border-top: 1px solid #222;
+            margin: 24px 0;
+        }
+        .big-code {
+            font-size: 36px;
+            font-weight: 700;
+            letter-spacing: 8px;
+            color: #4ade80;
+            text-align: center;
+            font-family: monospace;
+            padding: 20px;
+            background: #111;
+            border-radius: 8px;
+            margin: 16px 0;
+        }
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+        }
+        .badge-on { background: #14532d; color: #4ade80; }
+        .badge-off { background: #1c1c1c; color: #555; }
+        .badge-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="logo">JEONtrader</div>
+        <div class="subtitle">자동매매 플랫폼</div>
+        {% block content %}{% endblock %}
+    </div>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
