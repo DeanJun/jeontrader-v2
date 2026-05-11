@@ -118,10 +118,13 @@ async def register_post(
     username: str = Form(...),
     password: str = Form(...),
     password_confirm: str = Form(...),
+    privacy_agree: str = Form(default=""),
 ):
     if not _get_session(request).get("invite_ok"):
         return RedirectResponse("/invite")
 
+    if not privacy_agree:
+        return _r("register.html", request, {"error": "개인정보 수집·이용에 동의해주세요."})
     if password != password_confirm:
         return _r("register.html", request, {"error": "비밀번호가 일치하지 않습니다."})
     if len(password) < 8:
@@ -138,7 +141,7 @@ async def register_post(
 
     pw_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
     response = RedirectResponse("/kis-setup", status_code=303)
-    _set_session(response, {"invite_ok": True, "reg_username": username, "reg_pw_hash": pw_hash})
+    _set_session(response, {"invite_ok": True, "reg_username": username, "reg_pw_hash": pw_hash, "privacy_agreed": True})
     return response
 
 
@@ -309,7 +312,7 @@ async def kis_setup_post(
             exists = await session.execute(select(User).where(User.username == reg_username))
             if exists.scalar_one_or_none():
                 return RedirectResponse("/register?error=duplicate")
-            user = User(username=reg_username, password_hash=reg_pw_hash)
+            user = User(username=reg_username, password_hash=reg_pw_hash, privacy_agreed=sess.get("privacy_agreed", False))
             session.add(user)
             await session.flush()
         else:

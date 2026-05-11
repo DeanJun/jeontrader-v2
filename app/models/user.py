@@ -27,6 +27,7 @@ class User(Base):
     # 트레이딩 설정
     notify_only: Mapped[bool] = mapped_column(Boolean, default=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    privacy_agreed: Mapped[bool] = mapped_column(Boolean, default=False)
 
     # 트레이딩 상태 (메모리와 동기화)
     kis_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
