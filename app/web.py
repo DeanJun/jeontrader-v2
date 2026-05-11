@@ -139,7 +139,8 @@ async def register_post(
 
 @router.get("/kis-setup", response_class=HTMLResponse)
 async def kis_setup_get(request: Request):
-    if not _require_user(request):
+    sess = _get_session(request)
+    if not sess.get("user_id") and not sess.get("reg_email"):
         return RedirectResponse("/invite")
     return _r("kis_setup.html", request, {"error": None})
 
