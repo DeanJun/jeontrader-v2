@@ -88,7 +88,14 @@ async def invite_get(request: Request):
 
 @router.post("/invite", response_class=HTMLResponse)
 async def invite_post(request: Request, code: str = Form(...)):
-    if code != settings.invite_code:
+    from app.db import SessionLocal
+    from app.models.setting import Setting
+
+    async with SessionLocal() as session:
+        result = await session.get(Setting, "invite_code")
+        invite_code = result.value if result else settings.invite_code
+
+    if code != invite_code:
         return _r("invite.html", request, {"error": "초대코드가 올바르지 않습니다."})
     response = RedirectResponse("/register", status_code=303)
     _set_session(response, {"invite_ok": True})
