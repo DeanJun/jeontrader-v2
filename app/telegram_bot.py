@@ -112,34 +112,13 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         await update.message.reply_text("❌ 등록된 계정이 없습니다.")
         return
 
-    kis = get_kis(chat_id)
-    kis_pos = {}
-    if kis:
-        try:
-            from kis.order import get_overseas_balance
-            data = await kis.get_balance()
-            for row in data.get("output1") or []:
-                qty = int(row.get("hldg_qty") or "0")
-                if qty > 0:
-                    kis_pos[row.get("pdno", "")] = f"{qty}주"
-            for exch in ["NASD", "NYSE", "AMEX"]:
-                try:
-                    odata = await get_overseas_balance(kis.auth, kis.account_no, exch)
-                    for row in odata.get("output1") or []:
-                        qty = int(row.get("ovrs_cblc_qty") or "0")
-                        if qty > 0:
-                            kis_pos[row.get("ovrs_pdno", "")] = f"{qty}주"
-                except Exception:
-                    pass
-        except Exception:
-            pass
-
+    pos = {k: v for k, v in (state.kis_position or {}).items() if v}
     await update.message.reply_text(
         "📊 상태\n"
         f"KIS  : {'ON' if state.kis_enabled else 'OFF'}\n"
         f"분할  : {state.kis_split}분할 ({state.kis_buy_count}매수)\n"
         f"최근 시그널: {state.last_signal or '없음'}\n"
-        f"KIS 포지션 : {kis_pos or '없음'}"
+        f"포지션 : {pos or '없음'}"
     )
 
 
@@ -177,21 +156,20 @@ async def cmd_balance(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         if not domestic_found:
             lines.append("  보유 종목 없음")
 
-        lines.append("[해외]")
+        lines.append("[해외 NASD]")
         overseas_found = False
-        for exch in ["NASD", "NYSE", "AMEX"]:
-            try:
-                odata = await get_overseas_balance(kis.auth, kis.account_no, exch)
-                for row in odata.get("output1") or []:
-                    qty = int(row.get("ovrs_cblc_qty") or "0")
-                    if qty > 0:
-                        ticker = row.get("ovrs_pdno", "")
-                        name   = row.get("ovrs_item_name", "")
-                        evlu   = row.get("ovrs_stck_evlu_amt", "0")
-                        lines.append(f"  {ticker} {name} ({exch}): {qty}주 / 평가 ${float(evlu):,.2f}")
-                        overseas_found = True
-            except Exception:
-                pass
+        try:
+            odata = await get_overseas_balance(kis.auth, kis.account_no, "NASD")
+            for row in odata.get("output1") or []:
+                qty = int(row.get("ovrs_cblc_qty") or "0")
+                if qty > 0:
+                    ticker = row.get("ovrs_pdno", "")
+                    name   = row.get("ovrs_item_name", "")
+                    evlu   = row.get("ovrs_stck_evlu_amt", "0")
+                    lines.append(f"  {ticker} {name}: {qty}주 / 평가 ${float(evlu):,.2f}")
+                    overseas_found = True
+        except Exception:
+            pass
         if not overseas_found:
             lines.append("  보유 종목 없음")
 

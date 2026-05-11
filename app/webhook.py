@@ -24,7 +24,7 @@ def health() -> dict:
 
 # ── KIS handler ───────────────────────────────────────────────────────────────
 
-async def _handle_kis(chat_id: str, action: str, symbol: str, price: str, exchange: str) -> dict:
+async def _handle_kis(chat_id: str, action: str, symbol: str, price: str, exchange: str, notify_only: bool = False) -> dict:
     from app.registry import get_state, get_kis
     from app.telegram_bot import _save_state
 
@@ -40,16 +40,6 @@ async def _handle_kis(chat_id: str, action: str, symbol: str, price: str, exchan
             f"📡 시그널 수신 (KIS OFF)\nAction: {action}\nSymbol: {symbol}\nPrice: {price}"
         )
         return {"ok": True, "traded": False, "reason": "kis disabled"}
-
-    from app.config import settings
-    # notify_only는 유저별로 DB에서 가져옴
-    from app.db import SessionLocal
-    from app.models.user import User
-    from sqlalchemy import select
-    async with SessionLocal() as session:
-        result = await session.execute(select(User).where(User.telegram_chat_id == chat_id))
-        user = result.scalar_one_or_none()
-        notify_only = user.notify_only if user else False
 
     if notify_only:
         await telegram_service.send_message(
@@ -171,4 +161,4 @@ async def tradingview_webhook(user_id: str, request: Request) -> dict:
     exchange = "NASD" if market == "kis_overseas" else ""
     print(f"[WEBHOOK] user={user_id} {action} {symbol} @ {price} → {market}")
 
-    return await _handle_kis(chat_id, action, symbol, price, exchange)
+    return await _handle_kis(chat_id, action, symbol, price, exchange, notify_only=user.notify_only)
