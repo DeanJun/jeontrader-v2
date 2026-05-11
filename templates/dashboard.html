@@ -4,10 +4,13 @@
 {% block content %}
 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
     <h2>대시보드</h2>
-    <span class="status-badge {{ 'badge-on' if kis_enabled else 'badge-off' }}">
+    <button id="kis-toggle-btn"
+            class="status-badge {{ 'badge-on' if kis_enabled else 'badge-off' }}"
+            onclick="toggleKis()"
+            style="cursor:pointer; border:none; background:none; padding:0;">
         <span class="badge-dot"></span>
-        {{ 'KIS ON' if kis_enabled else 'KIS OFF' }}
-    </span>
+        <span id="kis-toggle-label">{{ 'KIS 거래 ON' if kis_enabled else 'KIS 거래 OFF' }}</span>
+    </button>
 </div>
 
 <div class="info-box">
@@ -65,6 +68,24 @@ function copy(id) {
     navigator.clipboard.writeText(document.getElementById(id).textContent.trim());
     event.target.textContent = '복사됨!';
     setTimeout(() => event.target.textContent = '복사', 1500);
+}
+
+let kisEnabled = {{ 'true' if kis_enabled else 'false' }};
+
+async function toggleKis() {
+    const btn = document.getElementById('kis-toggle-btn');
+    const label = document.getElementById('kis-toggle-label');
+    btn.disabled = true;
+    try {
+        const res = await fetch('/kis-toggle', { method: 'POST' });
+        const data = await res.json();
+        if (data.ok) {
+            kisEnabled = data.kis_enabled;
+            label.textContent = kisEnabled ? 'KIS 거래 ON' : 'KIS 거래 OFF';
+            btn.className = 'status-badge ' + (kisEnabled ? 'badge-on' : 'badge-off');
+        }
+    } catch (e) {}
+    btn.disabled = false;
 }
 
 async function testKis() {
