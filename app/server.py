@@ -3,24 +3,21 @@ from __future__ import annotations
 from fastapi import FastAPI
 
 from app.services.telegram_service import telegram_service
-from app.services.kis_service import kis_service
 from app.webhook import router as webhook_router
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="JEONtrader — KIS")
+    app = FastAPI(title="JEONtrader v2")
 
     app.include_router(webhook_router)
 
     @app.on_event("startup")
     async def on_startup() -> None:
-        await telegram_service.start()
+        # DB에서 활성 유저 로드 → 메모리 state 초기화
+        await _load_users()
 
-        from app.config import settings
-        if settings.kis_app_key and settings.kis_app_secret and settings.kis_account_no:
-            kis_service.connect()
-        else:
-            print("[KIS] 키 없음 — KIS 비활성화")
+        # 텔레그램 봇 시작
+        await telegram_service.start()
         print("[APP] startup completed")
 
     @app.on_event("shutdown")
@@ -29,3 +26,22 @@ def create_app() -> FastAPI:
         print("[APP] shutdown completed")
 
     return app
+
+
+async def _load_users() -> None:
+    """서버 시작 시 DB의 활성 유저를 메모리에 올림."""
+    from app.db import SessionLocal
+    from app.models.user import User
+    from app.registry import init_user
+    from sqlalchemy import select
+
+    async with SessionLocal() as session:
+        result = await session.execute(
+            select(User).where(User.is_active == True, User.telegram_chat_id != None)
+        )
+        users = result.scalars().all()
+
+    for user in users:
+        init_user(user.telegram_chat_id, user)
+
+    print(f"[APP] {len(users)}명 유저 로드 완료")

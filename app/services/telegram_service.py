@@ -21,11 +21,10 @@ class TelegramService:
         from app.telegram_bot import setup_telegram_handlers
         await setup_telegram_handlers()
 
-        # 🔥 핵심 추가
         await self.app.initialize()
         await self.app.bot.delete_webhook(drop_pending_updates=True)
-        await self.app.bot.get_updates(offset=-1)  # 이전 long-poll 세션 강제 종료
-        await asyncio.sleep(1)  # 텔레그램 서버가 이전 세션 끊을 시간
+        await self.app.bot.get_updates(offset=-1)
+        await asyncio.sleep(1)
         await self.app.start()
         await self.app.updater.start_polling()
 
@@ -34,7 +33,6 @@ class TelegramService:
     async def stop(self) -> None:
         if self.app is None:
             return
-
         try:
             if self.app.updater:
                 await self.app.updater.stop()
@@ -43,23 +41,20 @@ class TelegramService:
         except Exception as exc:
             print("[TELEGRAM STOP ERROR]", exc)
 
-    async def send_message(self, text: str) -> None:
+    async def send_message(self, chat_id: str, text: str) -> None:
+        """특정 유저에게 메시지 전송."""
         if self.app is None:
             print("[WARN] Telegram app not initialized")
             return
-
         for attempt in range(3):
             try:
-                await self.app.bot.send_message(
-                    chat_id=settings.telegram_allowed_chat_id,
-                    text=text,
-                )
+                await self.app.bot.send_message(chat_id=chat_id, text=text)
                 return
             except Exception as exc:
                 if attempt < 2:
                     await asyncio.sleep(1)
                 else:
-                    print("[TELEGRAM SEND ERROR]", exc)
+                    print(f"[TELEGRAM SEND ERROR] chat_id={chat_id} {exc}")
 
 
 telegram_service = TelegramService()
