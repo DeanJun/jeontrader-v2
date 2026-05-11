@@ -10,20 +10,14 @@
 </div>
 
 <h2>KIS API 설정</h2>
-<p class="desc">한국투자증권 API 키를 입력하세요.<br>모의투자로 먼저 테스트해보실 수 있습니다.</p>
+<p class="desc">한국투자증권 실거래 API 키를 입력하세요.</p>
 
 {% if error %}
 <div class="error">{{ error }}</div>
 {% endif %}
 
 <form method="post" action="/kis-setup" id="kis-form">
-    <div class="form-group">
-        <label>거래 모드</label>
-        <select name="kis_mode" id="kis_mode">
-            <option value="paper">모의투자</option>
-            <option value="real">실거래</option>
-        </select>
-    </div>
+    <input type="hidden" name="kis_mode" id="kis_mode" value="real">
     <div class="form-group">
         <label>고객 ID</label>
         <input type="text" name="kis_customer_id" placeholder="예: honggildong">
