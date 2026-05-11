@@ -152,8 +152,10 @@ async def kis_test(
         return JSONResponse({"ok": True, "message": "연결 성공"})
     except Exception as e:
         msg = str(e)
-        if "unauthorized" in msg.lower() or "401" in msg:
+        if "401" in msg:
             msg = "App Key 또는 App Secret이 올바르지 않습니다."
+        elif "403" in msg:
+            msg = "접근 거부(403) — 모드(모의/실거래)가 키와 일치하는지 확인하세요. 실거래 키는 KIS 홈페이지에서 API 신청 승인 후 사용 가능합니다."
         elif "timeout" in msg.lower():
             msg = "KIS 서버 응답 시간 초과."
         else:
@@ -187,6 +189,8 @@ async def kis_test_saved(request: Request):
         msg = str(e)
         if "401" in msg:
             msg = "App Key 또는 App Secret이 올바르지 않습니다."
+        elif "403" in msg:
+            msg = "접근 거부(403) — 모드(모의/실거래)가 키와 일치하는지 확인하세요. 실거래 키는 KIS 홈페이지에서 API 신청 승인 후 사용 가능합니다."
         elif "timeout" in msg.lower():
             msg = "KIS 서버 응답 시간 초과."
         else:
