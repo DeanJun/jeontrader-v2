@@ -10,7 +10,7 @@
 </div>
 
 <h2>회원가입</h2>
-<p class="desc">이메일과 비밀번호를 설정하세요.</p>
+<p class="desc">아이디와 비밀번호를 설정하세요.</p>
 
 {% if error %}
 <div class="error">{{ error }}</div>
@@ -18,8 +18,8 @@
 
 <form method="post" action="/register">
     <div class="form-group">
-        <label>이메일</label>
-        <input type="email" name="email" placeholder="example@email.com" autofocus>
+        <label>아이디</label>
+        <input type="text" name="username" placeholder="사용할 아이디 입력" autofocus>
     </div>
     <div class="form-group">
         <label>비밀번호</label>

@@ -53,7 +53,7 @@ async def login_get(request: Request):
 @router.post("/login", response_class=HTMLResponse)
 async def login_post(
     request: Request,
-    email: str = Form(...),
+    username: str = Form(...),
     password: str = Form(...),
 ):
     from app.db import SessionLocal
@@ -61,11 +61,11 @@ async def login_post(
     from sqlalchemy import select
 
     async with SessionLocal() as session:
-        result = await session.execute(select(User).where(User.email == email))
+        result = await session.execute(select(User).where(User.username == username))
         user = result.scalar_one_or_none()
 
     if not user or not bcrypt.checkpw(password.encode(), user.password_hash.encode()):
-        return _r("login.html", request, {"error": "이메일 또는 비밀번호가 올바르지 않습니다."})
+        return _r("login.html", request, {"error": "아이디 또는 비밀번호가 올바르지 않습니다."})
 
     response = RedirectResponse("/dashboard", status_code=303)
     _set_session(response, {"user_id": str(user.id), "invite_ok": True})
@@ -108,14 +108,14 @@ async def invite_post(request: Request, code: str = Form(...)):
 async def register_get(request: Request):
     if not _get_session(request).get("invite_ok"):
         return RedirectResponse("/invite")
-    error = "이미 사용 중인 이메일입니다." if request.query_params.get("error") == "duplicate" else None
+    error = "이미 사용 중인 아이디입니다." if request.query_params.get("error") == "duplicate" else None
     return _r("register.html", request, {"error": error})
 
 
 @router.post("/register", response_class=HTMLResponse)
 async def register_post(
     request: Request,
-    email: str = Form(...),
+    username: str = Form(...),
     password: str = Form(...),
     password_confirm: str = Form(...),
 ):
@@ -132,13 +132,13 @@ async def register_post(
     from sqlalchemy import select
 
     async with SessionLocal() as session:
-        exists = await session.execute(select(User).where(User.email == email))
+        exists = await session.execute(select(User).where(User.username == username))
         if exists.scalar_one_or_none():
-            return _r("register.html", request, {"error": "이미 사용 중인 이메일입니다."})
+            return _r("register.html", request, {"error": "이미 사용 중인 아이디입니다."})
 
     pw_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
     response = RedirectResponse("/kis-setup", status_code=303)
-    _set_session(response, {"invite_ok": True, "reg_email": email, "reg_pw_hash": pw_hash})
+    _set_session(response, {"invite_ok": True, "reg_username": username, "reg_pw_hash": pw_hash})
     return response
 
 
@@ -272,7 +272,7 @@ async def kis_test_saved(request: Request):
 @router.get("/kis-setup", response_class=HTMLResponse)
 async def kis_setup_get(request: Request):
     sess = _get_session(request)
-    if not sess.get("user_id") and not sess.get("reg_email"):
+    if not sess.get("user_id") and not sess.get("reg_username"):
         return RedirectResponse("/invite")
     return _r("kis_setup.html", request, {"error": None})
 
@@ -288,7 +288,7 @@ async def kis_setup_post(
 ):
     sess = _get_session(request)
     user_id = sess.get("user_id")
-    reg_email = sess.get("reg_email")
+    reg_username = sess.get("reg_username")
     reg_pw_hash = sess.get("reg_pw_hash")
 
     from app.db import SessionLocal
@@ -304,12 +304,12 @@ async def kis_setup_post(
             user = result.scalar_one_or_none()
             if not user:
                 return RedirectResponse("/invite")
-        elif reg_email and reg_pw_hash:
+        elif reg_username and reg_pw_hash:
             # 신규 가입: 이메일 중복 재확인 후 유저 생성
-            exists = await session.execute(select(User).where(User.email == reg_email))
+            exists = await session.execute(select(User).where(User.username == reg_username))
             if exists.scalar_one_or_none():
                 return RedirectResponse("/register?error=duplicate")
-            user = User(email=reg_email, password_hash=reg_pw_hash)
+            user = User(username=reg_username, password_hash=reg_pw_hash)
             session.add(user)
             await session.flush()
         else:
@@ -415,7 +415,7 @@ async def dashboard(request: Request):
 
     return _r("dashboard.html", request, {
         "user_id": user_id,
-        "email": user.email,
+        "username": user.username,
         "kis_mode": user.kis_mode,
         "kis_enabled": state.kis_enabled if state else False,
         "kis_split": state.kis_split if state else 1,
