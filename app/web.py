@@ -101,7 +101,8 @@ async def invite_post(request: Request, code: str = Form(...)):
 async def register_get(request: Request):
     if not _get_session(request).get("invite_ok"):
         return RedirectResponse("/invite")
-    return _r("register.html", request, {"error": None})
+    error = "이미 사용 중인 이메일입니다." if request.query_params.get("error") == "duplicate" else None
+    return _r("register.html", request, {"error": error})
 
 
 @router.post("/register", response_class=HTMLResponse)
@@ -128,15 +129,9 @@ async def register_post(
         if exists.scalar_one_or_none():
             return _r("register.html", request, {"error": "이미 사용 중인 이메일입니다."})
 
-        pw_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
-        user = User(email=email, password_hash=pw_hash)
-        session.add(user)
-        await session.commit()
-        await session.refresh(user)
-        user_id = str(user.id)
-
+    pw_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
     response = RedirectResponse("/kis-setup", status_code=303)
-    _set_session(response, {"user_id": user_id, "invite_ok": True})
+    _set_session(response, {"invite_ok": True, "reg_email": email, "reg_pw_hash": pw_hash})
     return response
 
 
@@ -158,27 +153,43 @@ async def kis_setup_post(
     kis_app_secret: str = Form(...),
     kis_account_no: str = Form(...),
 ):
-    user_id = _require_user(request)
-    if not user_id:
-        return RedirectResponse("/invite")
+    sess = _get_session(request)
+    user_id = sess.get("user_id")
+    reg_email = sess.get("reg_email")
+    reg_pw_hash = sess.get("reg_pw_hash")
 
     from app.db import SessionLocal
     from app.models.user import User
     from sqlalchemy import select
 
+    link_code = "".join(random.choices(string.digits, k=6))
+
     async with SessionLocal() as session:
-        result = await session.execute(select(User).where(User.id == uuid.UUID(user_id)))
-        user = result.scalar_one_or_none()
-        if not user:
+        if user_id:
+            # 기존 유저 KIS 정보 수정 (대시보드에서 재설정 시)
+            result = await session.execute(select(User).where(User.id == uuid.UUID(user_id)))
+            user = result.scalar_one_or_none()
+            if not user:
+                return RedirectResponse("/invite")
+        elif reg_email and reg_pw_hash:
+            # 신규 가입: 이메일 중복 재확인 후 유저 생성
+            exists = await session.execute(select(User).where(User.email == reg_email))
+            if exists.scalar_one_or_none():
+                return RedirectResponse("/register?error=duplicate")
+            user = User(email=reg_email, password_hash=reg_pw_hash)
+            session.add(user)
+            await session.flush()
+        else:
             return RedirectResponse("/invite")
+
         user.kis_mode = kis_mode
         user.kis_customer_id = kis_customer_id
         user.kis_app_key = kis_app_key
         user.kis_app_secret = kis_app_secret
         user.kis_account_no = kis_account_no
-        link_code = "".join(random.choices(string.digits, k=6))
         user.telegram_link_code = link_code
         await session.commit()
+        user_id = str(user.id)
 
     response = RedirectResponse("/telegram-link", status_code=303)
     _set_session(response, {"user_id": user_id, "invite_ok": True})
