@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     invite_code: str = "dnt1!"
     secret_key: str = "change-me-in-production"
 
+    # Admin
+    admin_password: str = "admin1234"
+
     # Dev
     allow_outside_hours: bool = False
 

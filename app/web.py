@@ -426,6 +426,177 @@ async def dashboard(request: Request):
     })
 
 
+# ── 비밀번호 찾기 (텔레그램으로 임시 비번 전송) ──────────────────────────────
+
+@router.get("/reset-request", response_class=HTMLResponse)
+async def reset_request_get(request: Request):
+    return _r("reset_request.html", request, {"error": None, "success": False})
+
+
+@router.post("/reset-request", response_class=HTMLResponse)
+async def reset_request_post(request: Request, username: str = Form(...)):
+    from app.db import SessionLocal
+    from app.models.user import User
+    from app.services.telegram_service import telegram_service
+    from sqlalchemy import select
+
+    async with SessionLocal() as session:
+        result = await session.execute(select(User).where(User.username == username))
+        user = result.scalar_one_or_none()
+
+        if not user or not user.telegram_chat_id:
+            return _r("reset_request.html", request, {
+                "error": "해당 아이디가 없거나 텔레그램 연동이 되어있지 않습니다.",
+                "success": False,
+            })
+
+        temp_pw = "".join(random.choices(string.ascii_letters + string.digits, k=10))
+        user.password_hash = bcrypt.hashpw(temp_pw.encode(), bcrypt.gensalt()).decode()
+        await session.commit()
+
+    await telegram_service.send_message(
+        user.telegram_chat_id,
+        f"🔐 임시 비밀번호가 발급되었습니다.\n\n임시 비번: `{temp_pw}`\n\n로그인 후 반드시 비밀번호를 변경해주세요."
+    )
+    return _r("reset_request.html", request, {"error": None, "success": True})
+
+
+# ── 비밀번호 변경 (대시보드에서) ─────────────────────────────────────────────
+
+@router.post("/change-password", response_class=HTMLResponse)
+async def change_password(
+    request: Request,
+    current_password: str = Form(...),
+    new_password: str = Form(...),
+    new_password_confirm: str = Form(...),
+):
+    user_id = _require_user(request)
+    if not user_id:
+        return RedirectResponse("/login", status_code=303)
+
+    if new_password != new_password_confirm:
+        return RedirectResponse("/dashboard?pw_error=mismatch", status_code=303)
+    if len(new_password) < 8:
+        return RedirectResponse("/dashboard?pw_error=short", status_code=303)
+
+    from app.db import SessionLocal
+    from app.models.user import User
+    from sqlalchemy import select
+
+    async with SessionLocal() as session:
+        result = await session.execute(select(User).where(User.id == uuid.UUID(user_id)))
+        user = result.scalar_one_or_none()
+        if not user or not bcrypt.checkpw(current_password.encode(), user.password_hash.encode()):
+            return RedirectResponse("/dashboard?pw_error=wrong", status_code=303)
+        user.password_hash = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode()
+        await session.commit()
+
+    return RedirectResponse("/dashboard?pw_ok=1", status_code=303)
+
+
+# ── 어드민 ────────────────────────────────────────────────────────────────────
+
+def _require_admin(request: Request) -> bool:
+    user_id = _require_user(request)
+    return user_id == settings.admin_user_id if hasattr(settings, "admin_user_id") else False
+
+
+@router.get("/admin", response_class=HTMLResponse)
+async def admin_get(request: Request):
+    if not _get_session(request).get("is_admin"):
+        return RedirectResponse("/admin-login")
+
+    from app.db import SessionLocal
+    from app.models.user import User
+    from sqlalchemy import select
+
+    async with SessionLocal() as session:
+        result = await session.execute(select(User).order_by(User.created_at.desc()))
+        users = result.scalars().all()
+
+    return _r("admin.html", request, {"users": users, "msg": request.query_params.get("msg")})
+
+
+@router.get("/admin-login", response_class=HTMLResponse)
+async def admin_login_get(request: Request):
+    if _get_session(request).get("is_admin"):
+        return RedirectResponse("/admin")
+    return _r("admin_login.html", request, {"error": None})
+
+
+@router.post("/admin-login", response_class=HTMLResponse)
+async def admin_login_post(
+    request: Request,
+    password: str = Form(...),
+):
+    if password != settings.admin_password:
+        return _r("admin_login.html", request, {"error": "비밀번호가 올바르지 않습니다."})
+    response = RedirectResponse("/admin", status_code=303)
+    _set_session(response, {"is_admin": True})
+    return response
+
+
+@router.post("/admin/reset-password")
+async def admin_reset_password(request: Request):
+    from fastapi.responses import JSONResponse
+    if not _get_session(request).get("is_admin"):
+        return JSONResponse({"ok": False, "msg": "권한 없음"})
+
+    body = await request.json()
+    target_id = body.get("user_id")
+    if not target_id:
+        return JSONResponse({"ok": False, "msg": "user_id 없음"})
+
+    from app.db import SessionLocal
+    from app.models.user import User
+    from app.services.telegram_service import telegram_service
+    from sqlalchemy import select
+
+    async with SessionLocal() as session:
+        result = await session.execute(select(User).where(User.id == uuid.UUID(target_id)))
+        user = result.scalar_one_or_none()
+        if not user:
+            return JSONResponse({"ok": False, "msg": "유저 없음"})
+
+        temp_pw = "".join(random.choices(string.ascii_letters + string.digits, k=10))
+        user.password_hash = bcrypt.hashpw(temp_pw.encode(), bcrypt.gensalt()).decode()
+        await session.commit()
+        chat_id = user.telegram_chat_id
+        username = user.username
+
+    if chat_id:
+        await telegram_service.send_message(
+            chat_id,
+            f"🔐 관리자에 의해 비밀번호가 초기화되었습니다.\n\n임시 비번: `{temp_pw}`\n\n로그인 후 반드시 비밀번호를 변경해주세요."
+        )
+        return JSONResponse({"ok": True, "msg": f"{username} 임시 비번 전송 완료"})
+    else:
+        return JSONResponse({"ok": True, "msg": f"{username} 임시 비번: {temp_pw} (텔레그램 미연동)"})
+
+
+@router.post("/admin/toggle-active")
+async def admin_toggle_active(request: Request):
+    from fastapi.responses import JSONResponse
+    if not _get_session(request).get("is_admin"):
+        return JSONResponse({"ok": False})
+
+    body = await request.json()
+    target_id = body.get("user_id")
+
+    from app.db import SessionLocal
+    from app.models.user import User
+    from sqlalchemy import select
+
+    async with SessionLocal() as session:
+        result = await session.execute(select(User).where(User.id == uuid.UUID(target_id)))
+        user = result.scalar_one_or_none()
+        if not user:
+            return JSONResponse({"ok": False})
+        user.is_active = not user.is_active
+        await session.commit()
+        return JSONResponse({"ok": True, "is_active": user.is_active})
+
+
 # ── 로그아웃 ──────────────────────────────────────────────────────────────────
 
 @router.get("/logout")

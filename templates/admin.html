@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}— 관리자{% endblock %}
+
+{% block content %}
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+    <h2>관리자</h2>
+    <span style="font-size:12px; color:#555;">유저 {{ users|length }}명</span>
+</div>
+
+{% if msg %}
+<div style="background:#14532d; border:1px solid #166534; color:#4ade80; padding:10px 14px; border-radius:8px; font-size:13px; margin-bottom:16px;">
+    {{ msg }}
+</div>
+{% endif %}
+
+{% for user in users %}
+<div class="info-box" style="margin-bottom:12px;">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+        <div>
+            <div style="font-size:14px; font-weight:600; color:#e0e0e0; margin-bottom:4px;">
+                {{ user.username }}
+                {% if not user.is_active %}
+                <span style="font-size:11px; color:#ef4444; margin-left:6px;">비활성</span>
+                {% endif %}
+            </div>
+            <div style="font-size:12px; color:#555; line-height:1.8;">
+                텔레그램: {{ '연동됨' if user.telegram_chat_id else '미연동' }} &nbsp;·&nbsp;
+                KIS: {{ '실거래' if user.kis_mode == 'real' else '모의' }} &nbsp;·&nbsp;
+                가입: {{ user.created_at.strftime('%Y-%m-%d') }}
+            </div>
+        </div>
+        <div style="display:flex; gap:6px; flex-shrink:0;">
+            <button class="copy-btn" onclick="resetPw('{{ user.id }}')" style="color:#facc15;">초기화</button>
+            <button class="copy-btn" onclick="toggleActive('{{ user.id }}', this)">
+                {{ '비활성화' if user.is_active else '활성화' }}
+            </button>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<hr class="divider">
+<a href="/logout"><button class="btn btn-ghost" style="margin-top:0;">로그아웃</button></a>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function resetPw(userId) {
+    if (!confirm('임시 비밀번호를 발급하고 텔레그램으로 전송할까요?')) return;
+    const res = await fetch('/admin/reset-password', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({user_id: userId})
+    });
+    const data = await res.json();
+    alert(data.msg || (data.ok ? '완료' : '실패'));
+}
+
+async function toggleActive(userId, btn) {
+    const res = await fetch('/admin/toggle-active', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({user_id: userId})
+    });
+    const data = await res.json();
+    if (data.ok) {
+        btn.textContent = data.is_active ? '비활성화' : '활성화';
+        location.reload();
+    }
+}
+</script>
+{% endblock %}

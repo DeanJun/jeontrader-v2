@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}— 비밀번호 찾기{% endblock %}
+
+{% block content %}
+<h2>비밀번호 찾기</h2>
+<p class="desc">가입 시 아이디를 입력하면 연동된 텔레그램으로 임시 비밀번호를 전송합니다.</p>
+
+{% if error %}
+<div class="error">{{ error }}</div>
+{% endif %}
+
+{% if success %}
+<div style="background:#14532d; border:1px solid #166534; color:#4ade80; padding:10px 14px; border-radius:8px; font-size:13px; margin-bottom:16px;">
+    임시 비밀번호를 텔레그램으로 전송했습니다. 로그인 후 비밀번호를 변경해주세요.
+</div>
+<a href="/login"><button class="btn" style="margin-top:0;">로그인으로 이동</button></a>
+{% else %}
+<form method="post" action="/reset-request">
+    <div class="form-group">
+        <label>아이디</label>
+        <input type="text" name="username" placeholder="가입 시 아이디" autofocus>
+    </div>
+    <button type="submit" class="btn">임시 비밀번호 전송</button>
+</form>
+
+<hr class="divider">
+<p style="text-align:center; font-size:13px; color:#555;">
+    <a href="/login" style="color:#4ade80;">로그인으로 돌아가기</a>
+</p>
+{% endif %}
+{% endblock %}

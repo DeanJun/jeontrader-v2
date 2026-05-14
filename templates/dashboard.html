@@ -84,6 +84,43 @@
 
 <hr class="divider">
 
+<div>
+    <div style="font-size:13px; color:#aaa; margin-bottom:12px; cursor:pointer;" onclick="togglePwForm()">
+        🔑 비밀번호 변경 <span id="pw-arrow" style="color:#555;">▼</span>
+    </div>
+    <div id="pw-form" style="display:none;">
+        {% if request.query_params.get('pw_ok') %}
+        <div style="background:#14532d; border:1px solid #166534; color:#4ade80; padding:10px 14px; border-radius:8px; font-size:13px; margin-bottom:12px;">
+            비밀번호가 변경되었습니다.
+        </div>
+        {% elif request.query_params.get('pw_error') %}
+        <div class="error">
+            {% if request.query_params.get('pw_error') == 'wrong' %}현재 비밀번호가 올바르지 않습니다.
+            {% elif request.query_params.get('pw_error') == 'mismatch' %}새 비밀번호가 일치하지 않습니다.
+            {% elif request.query_params.get('pw_error') == 'short' %}비밀번호는 8자 이상이어야 합니다.
+            {% endif %}
+        </div>
+        {% endif %}
+        <form method="post" action="/change-password">
+            <div class="form-group">
+                <label>현재 비밀번호</label>
+                <input type="password" name="current_password" placeholder="현재 비밀번호">
+            </div>
+            <div class="form-group">
+                <label>새 비밀번호</label>
+                <input type="password" name="new_password" placeholder="8자 이상">
+            </div>
+            <div class="form-group">
+                <label>새 비밀번호 확인</label>
+                <input type="password" name="new_password_confirm" placeholder="새 비밀번호 재입력">
+            </div>
+            <button type="submit" class="btn" style="margin-top:0;">변경하기</button>
+        </form>
+    </div>
+</div>
+
+<hr class="divider">
+
 <a href="/logout"><button class="btn btn-ghost" style="margin-top:0;">로그아웃</button></a>
 {% endblock %}
 
@@ -133,6 +170,19 @@ async function setSplit(n) {
         btn.style.background = v === n ? '#4ade80' : 'transparent';
         btn.style.color = v === n ? '#111' : '#e0e0e0';
     });
+}
+
+function togglePwForm() {
+    const form = document.getElementById('pw-form');
+    const arrow = document.getElementById('pw-arrow');
+    const visible = form.style.display !== 'none';
+    form.style.display = visible ? 'none' : 'block';
+    arrow.textContent = visible ? '▼' : '▲';
+}
+
+// pw_error 또는 pw_ok 파라미터 있으면 자동으로 폼 열기
+if (new URLSearchParams(location.search).get('pw_error') || new URLSearchParams(location.search).get('pw_ok')) {
+    document.addEventListener('DOMContentLoaded', () => togglePwForm());
 }
 
 async function testKis() {
