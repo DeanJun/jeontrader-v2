@@ -1,6 +1,20 @@
 from __future__ import annotations
 
+import asyncio
+
 from kis.auth import KISAuth
+
+
+async def _post_with_retry(auth: KISAuth, url: str, headers: dict, body: dict, retries: int = 3) -> dict:
+    for attempt in range(retries):
+        resp = await auth.client.post(url, headers=headers, json=body)
+        data = resp.json()
+        if data.get("rt_cd") != "0" and "초당거래제한" in data.get("msg1", ""):
+            if attempt < retries - 1:
+                await asyncio.sleep(1.0)
+                continue
+        return data
+    return data
 
 
 def _split(account_no: str) -> tuple[str, str]:
@@ -35,12 +49,12 @@ async def place_domestic_order(
 
     print(f"[KIS] 국내 {action} {ticker} x{qty} (mode={auth.mode})")
 
-    resp = await auth.client.post(
+    data = await _post_with_retry(
+        auth,
         f"{auth.base_url}/uapi/domestic-stock/v1/trading/order-cash",
-        headers=auth.build_headers(tr_id, token),
-        json=body,
+        auth.build_headers(tr_id, token),
+        body,
     )
-    data = resp.json()
 
     if data.get("rt_cd") != "0":
         raise RuntimeError(f"KIS 국내주문 오류: {data.get('msg1', data)}")
@@ -80,12 +94,12 @@ async def place_overseas_order(
 
     print(f"[KIS] 해외 {action} {ticker} x{qty} @ {price} {exchange} (mode={auth.mode})")
 
-    resp = await auth.client.post(
+    data = await _post_with_retry(
+        auth,
         f"{auth.base_url}/uapi/overseas-stock/v1/trading/order",
-        headers=auth.build_headers(tr_id, token),
-        json=body,
+        auth.build_headers(tr_id, token),
+        body,
     )
-    data = resp.json()
 
     if data.get("rt_cd") != "0":
         raise RuntimeError(f"KIS 해외주문 오류: {data.get('msg1', data)}")
