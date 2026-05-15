@@ -112,13 +112,30 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         await update.message.reply_text("❌ 등록된 계정이 없습니다.")
         return
 
-    pos = {k: v for k, v in (state.kis_position or {}).items() if v}
+    kis = get_kis(chat_id)
+    pos_text = "없음"
+    if kis:
+        try:
+            from kis.order import get_overseas_balance, get_domestic_balance
+            holdings = []
+            dom = await get_domestic_balance(kis.auth, kis.account_no)
+            for row in dom.get("output1") or []:
+                if int(row.get("hldg_qty") or "0") > 0:
+                    holdings.append(f"{row['pdno']} {int(row['hldg_qty'])}주")
+            ovrs = await get_overseas_balance(kis.auth, kis.account_no, "NASD")
+            for row in ovrs.get("output1") or []:
+                if int(row.get("ovrs_cblc_qty") or "0") > 0:
+                    holdings.append(f"{row['ovrs_pdno']} {int(row['ovrs_cblc_qty'])}주")
+            pos_text = "\n  ".join(holdings) if holdings else "없음"
+        except Exception as e:
+            pos_text = f"조회 실패: {e}"
+
     await update.message.reply_text(
         "📊 상태\n"
         f"KIS  : {'ON' if state.kis_enabled else 'OFF'}\n"
         f"분할  : {state.kis_split}분할 ({state.kis_buy_count}매수)\n"
         f"최근 시그널: {state.last_signal or '없음'}\n"
-        f"포지션 : {pos or '없음'}"
+        f"실잔고 : {pos_text}"
     )
 
 
